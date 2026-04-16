@@ -27,18 +27,19 @@ fc = 193.4e12; % Laser/Carrier Frequency fc = 193.4 Thz
 B = 10e9; % Chirp Bandwidth B = 10Ghz
 T_chirp = 10e-6; % Chirp Period T = 10μs
 Rb = 1e9; % Data rate Rb = 1Gbps
-fs = Rb; % This enough sampling frequency and it is explained why in the generation of the beat signal
+fs = 2* Rb; % NOT ->This enough sampling frequency and it is explained why in the generation of the beat signal
+N = fs * T_chirp; % Number of samples
 m_slope = B / T_chirp; % slope μ
 M = 256; % Number of chirps per frame
 
 % Simulation clocks
 t_global = 0 :dt_global: t_end; % Global clock for the kinematic calculations of x(t), y(t), R(t), theta(t) and Ur(t).dt = 0.1s is enough for the speeds used by cars.
-t_chirp = 0: 1/fs: T_chirp - 1/fs; % Chirp clock propagating the signals, t[n] = nTsample where ne[0,N-1] and Tsample = 1/fs.
+t_chirp = (0:N-1)/fs; % Chirp clock propagating the signals, t[n] = nTsample where ne[0,N-1]
 
 % --------------Real world parameters for the simulation--------------
 
-SNR = 20; % Signal to noise ratio for simulating noise.
-num_interf = 0; % Number of vehicles that interfere with the signal
+SNR = 20;%-5; % Signal to noise ratio for simulating noise.
+num_interf = 0;%100; % Number of vehicles that interfere with the signal
 
 % The number of elements in the targets indicates the number of cars and the
 % index of each car must be the same for every matrix!
@@ -105,10 +106,19 @@ for i = 1:1%size(x, 1)
     % with the original signal. Once the beat_signal matrix is generated, a Group Delay Filter
     % needs to be applied. This cancels the phase coding, restoring the linear frequency
     % modulation (LFM) structure and improving range-Doppler estimation accuracy
-    signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fc, SNR, num_interf, fD(i, :), tau(i, :));
 
     % Once the beat_signal matrix is generated, a Group Delay Filter needs to be
     % applied. This cancels the phase coding, restoring the linear frequency
     % modulation (LFM) structure and improving range-Doppler estimation accuracy
     
+    signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, SNR, num_interf, fD(i, :), tau(i, :));
+
 end
+
+% Plot test 
+final_spectrum = abs(fftshift(fft(signal(:, 256)), 1));
+
+% Plotting
+f_axis = linspace(-fs/2, fs/2 - fs/N, N);
+figure; plot(f_axis/1e6, final_spectrum);
+xlabel('Frequency (MHz)'); ylabel('Magnitude'); title('Range Peaks After GDF + Decoding');
