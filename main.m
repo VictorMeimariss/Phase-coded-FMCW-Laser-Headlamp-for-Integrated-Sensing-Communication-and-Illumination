@@ -8,13 +8,26 @@
 
 clc;
 clear;
-
+tic;
 % ----------Assumptions-----
 % 1)The FOV of the Camera is 360, if not, a simple if loop does not take into account
 % the echos created by a car outside the FOV.
 %
-% 2)
-
+% 2) SNR is taken as an average for all cars, in reality the SNR is better
+% on closer cars than on ones which are further.
+%
+% 3) The interferences are simulated as random each iteration since the
+% phase coding even in the real world makes those signals random each time
+% iteration, since the interferences seem random, the thetas from the camera
+% each iteration are also random. Hence why in this code, the real thetas
+% of the cars will be used and random ones will be assigned to the ghost
+% cars. In reality the theta is calculated based on the number of chirps
+% and which chirp was used when sending the signal, that chirp has a
+% specific theta which is assigned to the signal, knowing the indices of
+% the RND, after the CA-CFAR, the thetas are assigned to each range. But in
+% the real world a filter is used to fix the theta. This could be simulated
+% as well but it would take too much time and the results would be
+% identical.
 
 
 
@@ -27,10 +40,11 @@ fc = 193.4e12; % Laser/Carrier Frequency fc = 193.4 Thz
 B = 10e9; % Chirp Bandwidth B = 10Ghz
 T_chirp = 10e-6; % Chirp Period T = 10μs
 Rb = 1e9; % Data rate Rb = 1Gbps
-fs = 2* Rb; % NOT ->This enough sampling frequency and it is explained why in the generation of the beat signal
+fs = 4* Rb; % NOT ->This enough sampling frequency and it is explained why in the generation of the beat signal
 N = fs * T_chirp; % Number of samples
 m_slope = B / T_chirp; % slope μ
 M = 256; % Number of chirps per frame
+
 
 % Simulation clocks
 t_global = 0 :dt_global: t_end; % Global clock for the kinematic calculations of x(t), y(t), R(t), theta(t) and Ur(t).dt = 0.1s is enough for the speeds used by cars.
@@ -38,8 +52,20 @@ t_chirp = (0:N-1)/fs; % Chirp clock propagating the signals, t[n] = nTsample whe
 
 % --------------Real world parameters for the simulation--------------
 
-SNR = 20;%-5; % Signal to noise ratio for simulating noise.
-num_interf = 0;%100; % Number of vehicles that interfere with the signal
+SNR = -14; % Signal to noise ratio for simulating noise
+num_interf = 10; % Number of vehicles that interfere with the signal
+
+% CA-CFAR variables
+if SNR <= -19 % This one I will test in combination with the hough transform, maybe it wont be needed, because it takes double the time
+    guard_size = [8 4];
+    training_size = [16 8];
+    pfa = 1e-3;
+else
+    guard_size = [4 2];
+    training_size = [8 4];
+    pfa = 1e-4; % I can add another elseif with the same sizes but stricter pfa for higher snrs, but i want to test the hough transform
+end
+
 
 % The number of elements in the targets indicates the number of cars and the
 % index of each car must be the same for every matrix!
@@ -95,12 +121,15 @@ tau = 2 * R ./ c; % Signal propagation delay
 ur = (x .* ux + y .* uy) ./ R;
 fD = 2 * ur * fc / c;
 
-
+% This is variable to test the best interval for the hough transform
+num_intervals = 3;
+buffer_hough = cell(1, num_intervals);
 
 % Now every variable is calculated and the loop starts, the loop simulates
 % each time interval to use the real world information and simulate the
 % system
-for i = 1:1%size(x, 1)
+
+for i = 1:4 %size(x, 1)
     % A beat signal array needs to be generated using the variables, it is the result
     % of the noisy echos as well as interference from other car echos mixed
     % with the original signal. Once the beat_signal matrix is generated, a Group Delay Filter
@@ -113,12 +142,31 @@ for i = 1:1%size(x, 1)
     
     signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, SNR, num_interf, fD(i, :), tau(i, :));
 
+    % Extracting coordinates using the decouple_signal function which uses
+    % the signal with 2D fast fourier transform and then ca-cfar to
+    % extract the range, then the assigned thetas as well as random ones on
+    % the ghosts are assigned and physical coordinates x, y are extracted
+    % in the form of 2 collumns [x y].
+
+    tic;
+    coordinates = decouple_signal(M, N, T_chirp, signal, fs, c, B, guard_size, training_size, pfa, theta(i,:), R(i,:));
+    elapsedTime = toc;
+    
+    % The coordinates must be passed to a buffer which is used on the hough
+    % transform to evaluate if some signals, are ghost, or real.
+    time = t_global(i) .* ones(size(coordinates, 1), 1);
+    input = [coordinates time];
+    buffer_hough = [buffer_hough(2:end), input];
+
+    % Now the buffer_hough is used on the hough transform and cost function to get the final results 
 end
+total_elapsed_time = toc;
 
-% Plot test 
-final_spectrum = abs(fftshift(fft(signal(:, 256)), 1));
-
-% Plotting
-f_axis = linspace(-fs/2, fs/2 - fs/N, N);
-figure; plot(f_axis/1e6, final_spectrum);
-xlabel('Frequency (MHz)'); ylabel('Magnitude'); title('Range Peaks After GDF + Decoding');
+% % Plot test 
+% final_spectrum = abs(fftshift(fft(signal(:, 256)), 1));
+% 
+% % Plotting
+% f_axis = linspace(-fs/2, fs/2 - fs/N, N);
+% figure;
+% plot(f_axis/1e6, final_spectrum);
+% xlabel('Frequency (MHz)'); ylabel('Magnitude'); title('Range Peaks After GDF + Decoding'); 

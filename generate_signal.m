@@ -1,3 +1,7 @@
+% 14/4/26 Victor Emmanuel Meimaris: Created generate_signal.m script that generates
+% a signal being sent from the laser and coming back, getting mixed with
+% the original and filtered.
+
 function signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, SNR, num_interf, fD, tau)
 
     % For the mix beat_signal = sRx *conj(sLo), that would remove the terms
@@ -35,8 +39,12 @@ function signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, S
                 bit_indices = ceil((sample_indices - n_tau) * (Rb/fs));
                 delayed_phase(sample_indices) = phase_code(bit_indices, i + 1);
             end
+            % Phase term from the paper but I have inverted the sign(this
+            % changes nothing since the range is absolute, it moves the
+            % range to positive frequencies for our ease).
+            phase_term = 2 * pi * fb *t_chirp' + delayed_phase + 2 * pi * fD(j) * t_frame -2 * pi * fc * tau(j);
+
             % Adding everything to the beat signal
-            phase_term = -2 * pi * fb *t_chirp' + delayed_phase + 2 * pi * fD(j) * t_frame -2 * pi * fc * tau(j);
             beat_signal(:, i + 1) = beat_signal(:, i + 1) + exp(1i * phase_term); 
         end
     end
@@ -51,7 +59,7 @@ function signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, S
         
         % The interference beat frequency sweeps: f_int(t) = Delta_mu * t + offset
         % We model the mixed product directly:
-        interf_chirp = exp(1i * (pi * (m_inter - m_slope) * t_chirp'.^2 - 2 * pi * rand * fs * t_chirp' * t_start_rand + rand * 2 * pi));
+        interf_chirp = exp(1i * (pi * (m_inter - m_slope) * t_chirp'.^2 + 2 * pi * rand * fs * t_chirp' * t_start_rand + rand * 2 * pi));
         
         % Interference power is usually lower due to path loss but I'll put
         % 1.0 just in case
@@ -80,7 +88,7 @@ function signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, S
 
     % Creating gdf
     f = linspace(-fs/2, fs/2 - fs/N, N)';
-    gdf = exp(-1i * (pi / m_slope) .* f.^2);
+    gdf = exp(1i * (pi / m_slope) .* f.^2);
 
     % Applying filter
     signal = signal .* gdf;
@@ -90,7 +98,7 @@ function signal = generate_signal(t_chirp, M, m_slope, T_chirp, Rb, fs, N, fc, S
     signal= ifft(signal, [], 1);
 
     % Due to applying this filter, dispersion is caused and needs to be
-    % dealed with
+    % dealt with
     
     for i = 1:M
         % Create the baseband reference signal

@@ -9,16 +9,13 @@ relative velocity, range from the ego vehicle, camera angle θ, SNR [1]*,
 digital phase code [2]* and finally a number of interference echos which did not
 originate from the ego vehicle.
 
-2) Using the inputs, the main.m uses the function "generate_echos" generating the noisy
-echos coming back from the target cars as well as the interference echos with different 
-phase codes.
-
-3) Then the "generate_beat_signal" function, generates a beat signal array, which is
-the result of the noisy echos mixed with the original signal.
-
 -------------------------------------------Loop---------------------------------------------
-	4) The beat signal is then processed by the "decouple_beat_signal" function which
-	using GDF and then 2D-FFT a heatmap is generated and used by the CA-CFAR [3]* algorithm
+	3) Using the inputs the "generate_signal" function, generates a signal
+	array, which is the result of the noisy echos mixed with the original signal
+	and the filtered.
+
+	4) The signal is then processed by the "decouple_signal" function which
+	using 2D-FFT a heatmap is generated and used by the CA-CFAR [3]* algorithm
 	extracting R, (θ is known from the camera)and t is the specific frame time(R, θ, t) creating
 	x,y,t which then is used to return the projected plane matrices: xy, xt and yt.
 
