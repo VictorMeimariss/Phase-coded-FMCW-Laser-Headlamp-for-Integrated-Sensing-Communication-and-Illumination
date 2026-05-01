@@ -121,15 +121,31 @@ tau = 2 * R ./ c; % Signal propagation delay
 ur = (x .* ux + y .* uy) ./ R;
 fD = 2 * ur * fc / c;
 
-% This is variable to test the best interval for the hough transform
-num_intervals = 3;
-buffer_hough = cell(1, num_intervals);
+% needed for HT
+point_cloud = [];
+tracks = {};
+track_detection_rate = 0.5; % every this many seconds send our data for
+                            % track detection, be careful when changing
+                            % this since the algorithm inputs have been
+                            % tweaked to work for this exact value (due the
+                            % limited number of points)
+input_data = []; % storing the input data to plot later
 
 % Now every variable is calculated and the loop starts, the loop simulates
 % each time interval to use the real world information and simulate the
 % system
 
-for i = 1:4 %size(x, 1)
+% displaying the trajectory data in real time
+figure('Name', '3D Track Mapping');
+hold on; grid on;
+xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
+title('Target Trajectories in Spatio-Temporal Space');
+xlim([-5 5]);
+ylim([-25 75]);
+plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
+drawnow; % forces figure to update (matlab only draws at the end when doing heavy processing)
+
+for i = 1:length(t_global)
     % A beat signal array needs to be generated using the variables, it is the result
     % of the noisy echos as well as interference from other car echos mixed
     % with the original signal. Once the beat_signal matrix is generated, a Group Delay Filter
@@ -148,19 +164,57 @@ for i = 1:4 %size(x, 1)
     % the ghosts are assigned and physical coordinates x, y are extracted
     % in the form of 2 collumns [x y].
 
-    tic;
+    %tic;
     coordinates = decouple_signal(M, N, T_chirp, signal, fs, c, B, guard_size, training_size, pfa, theta(i,:), R(i,:));
-    elapsedTime = toc;
+    %elapsedTime = toc;
     
-    % The coordinates must be passed to a buffer which is used on the hough
-    % transform to evaluate if some signals, are ghost, or real.
+    % The coordinates plus the time are passed to the hough
+    % transform which evaluates if some signals, are ghost, or real.
+    
     time = t_global(i) .* ones(size(coordinates, 1), 1);
-    input = [coordinates time];
-    buffer_hough = [buffer_hough(2:end), input];
+    detected_points = [coordinates time];
+    
+    input_data = [input_data; detected_points];
+    
+    point_cloud = [point_cloud; detected_points];
+    
+    disp(t_global(i));
+    
+    if mod(t_global(i),track_detection_rate) ~= 0 || t_global(i) == 0; continue; end
+    
+    % M being only 2 makes the algorithm very susceptible to noise, however,
+    % if you go in hough_unit_tests.m and increase the frame rate for this
+    % same scenario you can see that clutter isn't a problem
+    
+    % since the loop takes a while to run we've saved the results from a run
+    % under poc_data/
+    
+    tracks = MHT_Track_Detection(...
+        point_cloud, ...
+        'tracks', tracks, ...
+        'window_length', 0.4, ...
+        'num_of_peaks', 10, ...
+        'minimum_common_points', 2, ...
+        'gap', 2.9 ...
+    );
 
-    % Now the buffer_hough is used on the hough transform and cost function to get the final results 
+    for j = 1:length(tracks)
+        pts_x = tracks{j}.points(:,1);
+        pts_y = tracks{j}.points(:,2);
+        pts_t = tracks{j}.points(:,3);
+
+        plot3(pts_x, pts_y, pts_t, 'LineWidth', 2);
+    end
+    
+    scatter3(point_cloud(:,1),point_cloud(:,2),point_cloud(:,3),'LineWidth',2);
+    
+    drawnow; % forces figure to update
+
+    point_cloud = []; % cleaning the point_cloud "buffer"
 end
 total_elapsed_time = toc;
+
+hold off;
 
 % % Plot test 
 % final_spectrum = abs(fftshift(fft(signal(:, 256)), 1));
