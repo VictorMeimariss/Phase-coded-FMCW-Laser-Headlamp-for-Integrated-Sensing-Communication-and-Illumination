@@ -8,39 +8,54 @@ function coordinates = decouple_signal(M, N, T_chirp, signal, fs, c, B, guard_si
     % Generate RDM and Power Matrix
     RDM = fftshift(fft2(signal, N, M));
     pm = abs(RDM).^2;
-
-    % Initialize CFAR detector with used parameters using Matlab's function
-    detector = phased.CFARDetector2D('TrainingBandSize', training_size, ...
-        'GuardBandSize', guard_size, 'ProbabilityFalseAlarm', pfa, ...
-        'OutputFormat', 'Detection index');
     
     % Axis definitions for mapping indices of the RDM to physical values only 
     % of range, as the doppler velocity is not used in the paper and it's
     % not needed. R = fb * c * Tchirp / 2*B from fb = (B/ Tchirp) * τ
-
     r_axis = (linspace(-fs/2, fs/2 - fs/N, N) * c * T_chirp) / (2 * B);
-
-
-    % Grid of indices calculation
+    
+    % Margin definitions
     margin_r = training_size(1) + guard_size(1);
     margin_c = training_size(2) + guard_size(2);
-    [rows, cols] = size(pm);
-    
-    idx_rows = (1 + margin_r):(rows - margin_r);
-    idx_cols = (1 + margin_c):(cols - margin_c);
-    
-    [C_idx, R_idx] = meshgrid(idx_cols, idx_rows);
-    cutidx = [R_idx(:)'; C_idx(:)'];
 
-
-    % Run CFAR (dets: row 1 = Range Index, row 2 = Doppler Index)
-    dets = detector(pm, cutidx);
-    detected_ranges = r_axis(dets(1, :));
+    % Fast Vectorized 2D CA-CFAR
+    % Binary convolution kernel
+    kernel_rows = 2 * margin_r + 1;
+    kernel_cols = 2 * margin_c + 1;
+    kernel = ones(kernel_rows, kernel_cols);
+    
+    % Hollow out the guard cells and Cell Under Test (CUT) in the center
+    r_idx = (margin_r - guard_size(1) + 1) : (margin_r + guard_size(1) + 1);
+    c_idx = (margin_c - guard_size(2) + 1) : (margin_c + guard_size(2) + 1);
+    kernel(r_idx, c_idx) = 0;
+           
+    num_training_cells = sum(kernel(:));
+    kernel = kernel / num_training_cells; % Normalize to calculate average noise power
+    
+    % Calculate CFAR threshold multiplier (alpha) for square-law detector
+    alpha = num_training_cells * (pfa^(-1/num_training_cells) - 1);
+    
+    % Convolve to extract the background noise floor across the entire matrix
+    noise_floor = conv2(pm, kernel, 'same');
+    
+    % Apply threshold to isolate detections
+    threshold = noise_floor * alpha;
+    logical_detections = pm > threshold;
+    
+    % Suppress edge detections
+    logical_detections(1:margin_r, :) = false;
+    logical_detections((end-margin_r+1):end, :) = false;
+    logical_detections(:, 1:margin_c) = false;
+    logical_detections(:, (end-margin_c+1):end) = false;
+    
+    % Extract Row (Range) indices of valid detections
+    [det_range_idx, ~] = find(logical_detections);
+    detected_ranges = r_axis(det_range_idx);
+    % ----------------------------------
     
     % Sorting the values to use them on the algorithm
     ranges = sort(detected_ranges(:)); 
     ranges = ranges(ranges >= 0); % Keep only positive ranges
-    
     
     if ~isempty(ranges)
         % dbscan(data, epsilon, minpts). Noise points return as -1.
