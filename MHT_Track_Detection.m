@@ -8,6 +8,7 @@ function tracks = MHT_Track_Detection(point_cloud, varargin)
     % sorting of the input data based on time is not needed, as long as
     % future data doesn't arrive before present data, which is always the case
     
+    % these are the default parameters
     addParameter(p, 'tracks', {}); % already existing tracks
     addParameter(p, 'window_length', 2); % rolling window length in seconds
     addParameter(p, 'gridres', 0.5); % grid resolution for converting points to binary images
@@ -65,15 +66,15 @@ function tracks = MHT_Track_Detection(point_cloud, varargin)
     houghpeaks_thres_coeff = p.Results.houghpeaks_thres_coeff;
     
     total_tracks = length(p.Results.tracks);
-    tracks = [p.Results.tracks, cell(1, 100-total_tracks)];
+    tracks = [p.Results.tracks, cell(1, 1000-total_tracks)];
   
     % rolling window processing
-    t_start = 0;
+    t_start = min(point_cloud(:,3));
     while t_start < max(point_cloud(:,3))
         t_end = t_start + window_length;
         
         % extract only the points within the current window
-        window_indices = t_start <= point_cloud(:,3) & point_cloud(:,3) < t_end;
+        window_indices = t_start <= point_cloud(:,3) & point_cloud(:,3) <= t_end;
         window_points = point_cloud(window_indices, :);
         
         if size(window_points, 1) > minimum_common_points
@@ -225,7 +226,7 @@ end
 
 function [tracks, total_tracks] = stitch_tracks(tracks, total_tracks, segments, pos_weight, kin_weight, stitch_threshold)
     
-    has_been_stitched = false(1, 100); % to avoid stitching to the same track twice
+    has_been_stitched = false(1, 1000); % to avoid stitching to the same track twice
 
     for l = 1:length(segments)
         segment = segments{l};

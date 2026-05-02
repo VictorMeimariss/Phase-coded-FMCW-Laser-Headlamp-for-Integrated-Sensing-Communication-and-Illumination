@@ -24,7 +24,7 @@ point_cloud = [
 
 tracks = MHT_Track_Detection(point_cloud, 'num_of_peaks', 10);
 
-plot_tracks(tracks, c_x, c_y, c_t);
+plot_tracks(point_cloud, tracks, [-10 100 -10 100]);
 
 %% 3 simple targets with gaussian noise
 clc; clear;
@@ -32,7 +32,7 @@ clc; clear;
 num_points = 500;
 noise_scalar = 0.1;
 gaussian_noise = randn(num_points, 1) * noise_scalar;
-num_clutter = 0;
+num_clutter = 20;
 c_x = 0 + rand(num_clutter, 1) * 100;
 c_y = 0 + rand(num_clutter, 1) * 100;
 c_t = 0 + rand(num_clutter, 1) * 10;
@@ -55,9 +55,9 @@ point_cloud = [
     c_x, c_y, c_t;
 ];
 
-tracks = MHT_Track_Detection(point_cloud, 'num_of_peaks', 10);
+tracks = MHT_Track_Detection(point_cloud, 'window_length', 0.3);
 
-plot_tracks(tracks, c_x, c_y, c_t);
+plot_tracks(point_cloud, tracks, [-10 100 -10 100]);
 
 %% 2 targets crossing paths with dense clutter
 clc; clear;
@@ -84,15 +84,9 @@ point_cloud = [
     c_x, c_y, c_t;
 ];
 
-tracks = MHT_Track_Detection( ...
-    point_cloud, ...
-    'window_length', 2, ...
-    'gap', 0.5, ...
-    'stitch_threshold', 5, ...
-    'num_of_peaks', 10 ...
-);
+tracks = MHT_Track_Detection(point_cloud);
 
-plot_tracks(tracks, c_x, c_y, c_t);
+plot_tracks(point_cloud, tracks, [-10 100 -10 100]);
 
 %% two stopped cars
 clc; clear;
@@ -121,14 +115,12 @@ point_cloud = [
 
 tracks = MHT_Track_Detection(point_cloud);
 
-plot_tracks(tracks, c_x, c_y, c_t);
-
-view(3);
+plot_tracks(point_cloud, tracks, [-10 100 -10 100]);
 
 %% target scenario from main.m (1/2)
 clc; clear;
 
-num_points = 31;
+num_points = 301;
 
 t = linspace(0, 3, num_points);
 
@@ -163,23 +155,21 @@ title('Target Trajectories in Spatio-Temporal Space');
 xlim([-5 5]);
 ylim([-25 75]);
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
+drawnow;
 
-detection_rate = 0.5;
+detection_rate = 0.05;
 
 for i=1:size(t,1)
     point_cloud = [point_cloud; [x(i,:)', y(i,:)', t(i,:)']];
-    
-    pause(0.15);
     
     if mod(t(i,1),detection_rate) ~= 0 && t(i,1) ~= 0; continue; end
 
     tracks = MHT_Track_Detection(...
         point_cloud, ...
         'tracks', tracks, ...
-        'window_length', 0.4, ...
-        'num_of_peaks', 10, ...
-        'minimum_common_points', 2, ...
-        'gap', 3 ...
+        'num_of_peaks', 25, ...
+        'minimum_common_points', 5, ...
+        'window_length', detection_rate ...
     );
 
     for j = 1:length(tracks)
@@ -187,17 +177,19 @@ for i=1:size(t,1)
         pts_y = tracks{j}.points(:,2);
         pts_t = tracks{j}.points(:,3);
 
-        plot3(pts_x, pts_y, pts_t, 'LineWidth', 2);
+        plot3(pts_x, pts_y, pts_t, '.');
     end
+    
+    drawnow;
 
     point_cloud = [];
 end
 
 %% target scenario from main.m (2/2)
 
-clc; clear;
+clc; clear; close all;
 
-num_points = 31;
+num_points = 301;
 noise_scalar = 0;
 gaussian_noise = randn(num_points, 1) * noise_scalar;
 num_clutter = 0;
@@ -232,45 +224,47 @@ point_cloud = [
 
 tracks = MHT_Track_Detection(...
     point_cloud, ...
-    'window_length', 0.4, ...
-    'num_of_peaks', 10, ...
-    'minimum_common_points', 2, ...
-    'stitch_threshold', 5.0, ...
-    'gap', 3 ...
+    'window_length', 0.05, ...
+    'num_of_peaks', 25, ...
+    'minimum_common_points', 5 ...
 );
 
-plot_tracks(tracks, c_x, c_y, c_t);
-
-xlim([-5 5]);
-ylim([-25 75]);
+plot_tracks(point_cloud, tracks, [-5 5 -25 75]);
 
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
 
 %% local function for drawing tracks in three dimensions
 
-function plot_tracks(tracks, c_x, c_y, c_t)  
+function plot_tracks(input_data, tracks, axis_limits)  
     disp(['Total tracks detected: ', num2str(length(tracks))]);
 
-    figure('Name', '3D Track Mapping');
+    figure('Name', '3D Track Mapping', 'Position', [800, 200, 600, 500]);
     hold on; grid on;
     xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
     title('Target Trajectories in Spatio-Temporal Space');
-    xlim([-10 100])
-    ylim([-10 100])
+    axis(axis_limits)
 
     for idx = 1:length(tracks)
         x = tracks{idx}.points(:,1);
         y = tracks{idx}.points(:,2);
         t = tracks{idx}.points(:,3);
         
-        plot3(x, y, t, 'LineWidth', 2, 'DisplayName', ['Target ', num2str(idx)]);
-        %scatter3(x, y, t, 'LineWidth', 2, 'DisplayName', ['Target ', num2str(idx)]); 
+        plot3(x, y, t, '.', 'DisplayName', ['Target ', num2str(idx)]); 
 
     end
     
-    scatter3(c_x, c_y, c_t, 10, [0.75 0.75 0.75], 'filled', 'DisplayName', 'clutter');
-
-    %view(3); % Set to default 3D perspective
-    legend('show', 'Location', 'northeastoutside');
+    legend('Location', 'northeastoutside');
+    %view(3); % defaults to 3D perspective
     
+    x = input_data(:,1);
+    y = input_data(:,2);
+    t = input_data(:,3);
+    
+    figure('Position', [180, 200, 600, 500]); hold on; grid on;
+    xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
+    title('Input Data');
+    axis(axis_limits);
+    plot3(x, y, t, 'g.', 'DisplayName', 'input data');
+
+    legend('Location', 'northeastoutside');
 end

@@ -124,11 +124,8 @@ fD = 2 * ur * fc / c;
 % needed for HT
 point_cloud = [];
 tracks = {};
-track_detection_rate = 5 * dt_global; % every this many seconds send our data for
-                            % track detection, be careful when changing
-                            % this since the algorithm inputs have been
-                            % tweaked to work for this exact value (due the
-                            % limited number of points)
+track_detection_rate = 0.05; % every this many seconds send the data for track detection
+                            
 input_data = []; % storing the input data to plot later
 
 % Now every variable is calculated and the loop starts, the loop simulates
@@ -136,13 +133,25 @@ input_data = []; % storing the input data to plot later
 % system
 
 % displaying the trajectory data in real time
-figure('Name', '3D Track Mapping');
-hold on; grid on;
+h1 = figure('Name', '3D Track Mapping', 'Position', [800, 200, 600, 500]);
+hold on;
+grid on;
 xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
 title('Target Trajectories in Spatio-Temporal Space');
-xlim([-5 5]);
-ylim([-25 75]);
+axis([-5 5 -25 75]);
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
+legend('Location', 'northeastoutside');
+
+h2 = figure('Position', [180, 200, 600, 500]);
+hold on;
+grid on;
+xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
+title('Input Data');
+axis([-5 5 -25 75]);
+legend('Location', 'northeastoutside');
+plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
+
+
 drawnow; % forces figure to update (matlab only draws at the end when doing heavy processing)
 
 for i = 1:length(t_global)
@@ -182,35 +191,37 @@ for i = 1:length(t_global)
     
     if mod(t_global(i),track_detection_rate) ~= 0 || t_global(i) == 0; continue; end
     
-    % M being only 2 makes the algorithm very susceptible to noise, however,
-    % if you go in hough_unit_tests.m and increase the frame rate for this
-    % same scenario you can see that clutter isn't a problem
-    
-    % since the loop takes a while to run we've saved the results from a run
-    % under poc_data/
-    
+    % the track detection rate is already small enough so run only one window in each iteration
     tracks = MHT_Track_Detection(...
         point_cloud, ...
         'tracks', tracks, ...
-        'window_length', 0.5, ...
-        'num_of_peaks', 20, ...
-        'minimum_common_points', 4, ...
+        'window_length', track_detection_rate, ... 
+        'num_of_peaks', 30, ...
+        'minimum_common_points', 5, ...
         'gap', 0.5 ...
     );
+
+    figure(h1);
 
     for j = 1:length(tracks)
         pts_x = tracks{j}.points(:,1);
         pts_y = tracks{j}.points(:,2);
         pts_t = tracks{j}.points(:,3);
 
-        plot3(pts_x, pts_y, pts_t, 'LineWidth', 2);
+        plot3(pts_x, pts_y, pts_t, '.');
     end
     
-    scatter3(point_cloud(:,1),point_cloud(:,2),point_cloud(:,3),'LineWidth',2);
+    figure(h2);
+    
+    pts_x = point_cloud(:,1);
+    pts_y = point_cloud(:,2);
+    pts_t = point_cloud(:,3);
+
+    plot3(pts_x, pts_y, pts_t, 'g.');
     
     drawnow; % forces figure to update
 
-    point_cloud = []; % cleaning the point_cloud "buffer"
+    point_cloud = []; % empty the point_cloud "buffer"
 end
 total_elapsed_time = toc;
 
