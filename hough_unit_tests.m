@@ -157,7 +157,7 @@ ylim([-25 75]);
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
 drawnow;
 
-detection_rate = 0.05;
+detection_rate = 0.2;
 
 for i=1:size(t,1)
     point_cloud = [point_cloud; [x(i,:)', y(i,:)', t(i,:)']];
@@ -169,7 +169,7 @@ for i=1:size(t,1)
         'tracks', tracks, ...
         'num_of_peaks', 25, ...
         'minimum_common_points', 5, ...
-        'window_length', detection_rate ...
+        'window_length', 0.05 ...
     );
 
     for j = 1:length(tracks)
