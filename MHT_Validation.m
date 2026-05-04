@@ -50,13 +50,13 @@ xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)'); title('(
 
 scatter3(c_x, c_y, c_t, 10, [0.8 0.8 0.8], 'filled', 'DisplayName', 'clutter');
 
-plot3(x1_true, y1_true, t, 'g--', 'LineWidth', 3, 'HandleVisibility', 'off');  % seperating them because plot
-plot3(x2_true, y2_true, t, 'g--', 'LineWidth', 3, 'DisplayName', 'True Track');% combines joins the lines together
+plot3(x1_true, y1_true, t, 'g-', 'LineWidth', 3, 'HandleVisibility', 'off');  % seperating them because plot
+plot3(x2_true, y2_true, t, 'g-', 'LineWidth', 3, 'DisplayName', 'True Track');% combines joins the lines together
 
 x = tracks{1}.points(:,1); y = tracks{1}.points(:,2); t = tracks{1}.points(:,3);
-plot3(x, y, t, 'b:', 'LineWidth', 2, 'HandleVisibility', 'off');
+plot3(x, y, t, 'b.', 'LineWidth', 2, 'HandleVisibility', 'off');
 x = tracks{2}.points(:,1); y = tracks{2}.points(:,2); t = tracks{2}.points(:,3);
-plot3(x, y, t, 'b:', 'LineWidth', 2, 'DisplayName', 'Detected Track');
+plot3(x, y, t, 'b.', 'LineWidth', 2, 'DisplayName', 'Detected Track');
 
 hold off;
 axis([-20 100 -40 100]);
@@ -146,9 +146,9 @@ tracks = MHT_Track_Detection(point_cloud);
 
 scatter3(c_x, c_y, c_t, 10, [0.8 0.8 0.8], 'filled', 'DisplayName', 'clutter');
 x = tracks{1}.points(:,1); y = tracks{1}.points(:,2); t = tracks{1}.points(:,3);
-plot3(x, y, t, 'b--', 'LineWidth', 2, 'DisplayName', 'Detected Track 2');
+plot3(x, y, t, 'b.', 'LineWidth', 2, 'DisplayName', 'Detected Track 1');
 x = tracks{2}.points(:,1); y = tracks{2}.points(:,2); t = tracks{2}.points(:,3);
-plot3(x, y, t, 'r--', 'LineWidth', 2, 'DisplayName', 'Detected Track 1');
+plot3(x, y, t, 'r.', 'LineWidth', 2, 'DisplayName', 'Detected Track 2');
 
 axis([0 100 0 100]);
 legend('Location', 'southeast');

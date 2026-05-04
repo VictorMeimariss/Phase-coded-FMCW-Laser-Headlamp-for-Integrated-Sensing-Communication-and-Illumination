@@ -124,7 +124,8 @@ fD = 2 * ur * fc / c;
 % needed for HT
 point_cloud = [];
 tracks = {};
-track_detection_rate = 0.05; % every this many seconds send the data for track detection
+window_length = 0.05;
+track_detection_rate = window_length*4; % every this many seconds send the data for track detection
                             
 input_data = []; % storing the input data to plot later
 
@@ -150,7 +151,6 @@ title('Input Data');
 axis([-5 5 -25 75]);
 legend('Location', 'northeastoutside');
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
-
 
 drawnow; % forces figure to update (matlab only draws at the end when doing heavy processing)
 
@@ -189,13 +189,13 @@ for i = 1:length(t_global)
     
     disp(t_global(i));
     
+    % every track_detection_rate seconds send our data for track detection
     if mod(t_global(i),track_detection_rate) ~= 0 || t_global(i) == 0; continue; end
     
-    % the track detection rate is already small enough so run only one window in each iteration
     tracks = MHT_Track_Detection(...
         point_cloud, ...
         'tracks', tracks, ...
-        'window_length', track_detection_rate, ... 
+        'window_length', window_length, ... 
         'num_of_peaks', 30, ...
         'minimum_common_points', 5, ...
         'gap', 0.5 ...
@@ -219,7 +219,7 @@ for i = 1:length(t_global)
 
     plot3(pts_x, pts_y, pts_t, 'g.');
     
-    drawnow; % forces figure to update
+    drawnow; % forces figures to update
 
     point_cloud = []; % empty the point_cloud "buffer"
 end
