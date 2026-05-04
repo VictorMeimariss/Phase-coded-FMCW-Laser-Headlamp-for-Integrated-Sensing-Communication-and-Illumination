@@ -1,6 +1,6 @@
 clc; clear; close all;
 
-addpath ..
+addpath .. % need for ADB.m
 
 load('num_of_peaks_30_min_pts_5/input_data.mat')
 load('num_of_peaks_30_min_pts_5/tracks.mat')

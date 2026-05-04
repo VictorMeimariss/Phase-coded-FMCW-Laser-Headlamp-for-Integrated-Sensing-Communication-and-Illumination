@@ -141,7 +141,6 @@ xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
 title('Target Trajectories in Spatio-Temporal Space');
 axis([-5 5 -25 75]);
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
-legend('Location', 'northeastoutside');
 
 h2 = figure('Position', [180, 200, 600, 500]);
 hold on;
@@ -149,7 +148,6 @@ grid on;
 xlabel('X Position (m)'); ylabel('Y Position (m)'); zlabel('Time (s)');
 title('Input Data');
 axis([-5 5 -25 75]);
-legend('Location', 'northeastoutside');
 plot(0, 0, 'bx', 'MarkerSize', 10, 'LineWidth', 2, 'DisplayName', 'ego car');
 
 drawnow; % forces figure to update (matlab only draws at the end when doing heavy processing)
